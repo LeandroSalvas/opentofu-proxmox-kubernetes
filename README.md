@@ -377,6 +377,23 @@ operation. Both are reachable from any host with a LAN route to the nodes.
   k9s --kubeconfig ./kubeconfig.yaml          # or KUBECONFIG=$PWD/kubeconfig.yaml
   ```
 
+### Graceful cluster shutdown
+
+Talos has no QEMU guest agent and ignores ACPI, so `qm shutdown` on Proxmox
+will **not** stop the VMs — the safe path is the Talos API. The bundled helper
+drains workers first, then control-plane nodes one at a time (etcd quorum is
+preserved), and powers each VM off with `talosctl shutdown`:
+
+```bash
+scripts/shutdown-cluster.sh                 # real shutdown
+scripts/shutdown-cluster.sh --dry-run       # preview the exact commands
+scripts/shutdown-cluster.sh --no-drain      # skip kubectl drain
+```
+
+It discovers the node IPs from OpenTofu state and the node names from the
+cluster labels; if `./talosconfig` is missing it is generated on the fly. Start
+the nodes back with `qm start <vmid>` on Proxmox.
+
 ### Dynamic, load-aware VM placement
 
 New VMs are spread across the online Proxmox nodes by **current host

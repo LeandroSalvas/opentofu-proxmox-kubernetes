@@ -375,6 +375,23 @@ dia a dia. Ambas funcionam de qualquer host com rota de LAN para os nós.
   k9s --kubeconfig ./kubeconfig.yaml          # ou KUBECONFIG=$PWD/kubeconfig.yaml
   ```
 
+### Desligamento gracioso do cluster
+
+O Talos não tem guest agent e ignora ACPI, então o `qm shutdown` do Proxmox
+**não** desliga as VMs — o caminho seguro é a API Talos. O helper do repo faz o
+drain dos workers primeiro e depois dos control planes um por vez (preservando
+o quorum do etcd), desligando cada VM com `talosctl shutdown`:
+
+```bash
+scripts/shutdown-cluster.sh                 # desligamento real
+scripts/shutdown-cluster.sh --dry-run       # pré-visualiza os comandos exatos
+scripts/shutdown-cluster.sh --no-drain      # pula o kubectl drain
+```
+
+Ele descobre os IPs dos nós pelo estado do OpenTofu e os nomes pelos labels do
+cluster; se o `./talosconfig` não existir, é gerado na hora. Para religar, use
+`qm start <vmid>` no Proxmox.
+
 ### Distribuição dinâmica das VMs por utilização
 
 As VMs novas são distribuídas entre os nós online do Proxmox pela **utilização
