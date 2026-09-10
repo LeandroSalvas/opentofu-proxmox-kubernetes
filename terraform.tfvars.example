@@ -1,0 +1,38 @@
+# Copy this file to terraform.tfvars and fill in your real values.
+# NEVER commit terraform.tfvars (it may contain secrets).
+
+proxmox_api_url = "https://pve.homelab.salvas:8006"
+proxmox_user    = "terraform-prov@pve"
+proxmox_password = ""
+# proxmox_ssh_username = "root"    # system user used to SSH-import the Talos image (file_id)
+
+master_count = 3
+worker_count = 2
+
+network_bridge = "vmbr0"
+vlan_id        = 0
+
+iso_datastore_id  = "local"      # node-local storage with `iso` content (Talos download)
+vm_datastore_id   = "local-lvm"  # storage for the VM disks
+
+# --- Fase 4: Cluster API / CAPMOX credentials ---
+# Token created in PVE: `pveum user token add <user>@pve capi --privsep 0`
+# (root SSH or GUI). The PROXMOX_URL is the API endpoint reachable from inside
+# the cluster (the HAProxy LB IP that forwards :8006 to the PVE nodes).
+# capi_proxmox_url    = "https://192.168.15.113:8006"
+# capi_proxmox_token  = "terraform-prov@pve!capi"
+# capi_proxmox_secret = ""
+
+# --- Image download (Talos v1.13.0, decompressed per-node into `iso`) ---
+# talos_image_url = "https://github.com/siderolabs/talos/releases/download/v1.13.0/metal-amd64.raw.zst"
+# talos_image_checksum = "c43ab77f6881012f4f76265baf9be91b547255634f8dd45ee35aa522997aa1b4"
+# talos_image_file_name = "talos-amd64.raw"
+
+# --- Phase 2 (Talos) ---
+# talos_version        = "v1.13.0"
+# kubernetes_version   = "v1.36.3"
+# cluster_endpoint     = ""          # empty = https://<primeiro master>:6443
+# node_gateway         = "192.168.15.1"
+# dns_servers          = ["192.168.15.1", "8.8.8.8"]
+# node_interface       = "eth0"
+# install_disk         = "/dev/sda"
