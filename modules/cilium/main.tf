@@ -12,7 +12,7 @@
 # machine config disables Talos kube-proxy (cluster.proxy.disabled = true).
 # ---------------------------------------------------------------------------
 locals {
-  platform_values = yamlencode({
+  platform_values = yamlencode(merge({
     ipam = {
       mode = "kubernetes"
     }
@@ -76,7 +76,15 @@ locals {
         },
       ]
     }
-  })
+    # LoadBalancer services: Cilium LB-IPAM allocates an external IP from the
+    # pool below and L2 announcements advertise it over the LAN (ARP). Requires
+    # kube-proxy replacement (already enabled above). Explicit false == the
+    # chart default, so disabling via cilium_enable_lb is a clean no-op.
+    "enable-lb-ipam" = var.enable_lb
+    l2announcements = {
+      enabled = var.enable_lb
+    }
+  }))
 }
 
 resource "helm_release" "cilium" {

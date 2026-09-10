@@ -306,6 +306,18 @@ variable "cilium_extra_values" {
   default     = []
 }
 
+variable "cilium_enable_lb" {
+  description = "Enable LoadBalancer services with Cilium LB-IPAM + L2 Announcements (kube-proxy-free). Disable to fall back to manual port-forward/NodePort."
+  type        = bool
+  default     = true
+}
+
+variable "cilium_lb_ipam_cidrs" {
+  description = "CIDRs/IP ranges the operator may allocate to LoadBalancer services (CiliumLoadBalancerIPPool). Keep out of your DHCP and existing static ranges."
+  type        = list(string)
+  default     = ["192.168.15.230-192.168.15.245"]
+}
+
 # ---------------------------------------------------------------------------
 # Phase 5 - NFS storage
 # ---------------------------------------------------------------------------

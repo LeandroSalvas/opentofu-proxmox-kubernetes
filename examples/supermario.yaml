@@ -1,0 +1,56 @@
+# Super Mario browser game as a LoadBalancer demo.
+#
+# The cluster ships with Cilium LB-IPAM + L2 announcements (Fase 3b), so
+# `type: LoadBalancer` receives a real IP from cilium_lb_ipam_cidrs
+# (default 192.168.15.230-245) and is reachable on the LAN:
+#
+#   kubectl apply -f examples/supermario.yaml
+#   kubectl get svc supermario          # EXTERNAL-IP in the pool
+#   curl http://<external-ip>/          # the game's landing page
+#
+# To tear down: kubectl delete -f examples/supermario.yaml
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: supermario
+  labels:
+    app: supermario
+spec:
+  replicas: 4
+  selector:
+    matchLabels:
+      app: supermario
+  template:
+    metadata:
+      labels:
+        app: supermario
+    spec:
+      containers:
+        - name: supermario
+          image: bharathshetty4/supermario:latest
+          ports:
+            - containerPort: 8080
+              protocol: TCP
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: supermario
+  labels:
+    app: supermario
+spec:
+  type: LoadBalancer
+  selector:
+    app: supermario
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080

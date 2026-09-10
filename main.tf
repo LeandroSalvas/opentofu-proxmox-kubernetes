@@ -341,8 +341,104 @@ module "cilium" {
   chart_version       = var.cilium_chart_version
   control_plane_taint = "node-role.kubernetes.io/control-plane"
   extra_values        = var.cilium_extra_values
+  enable_lb           = var.cilium_enable_lb
+  lb_ipam_cidrs       = var.cilium_lb_ipam_cidrs
 
   depends_on = [module.bootstrap]
+}
+
+# ---------------------------------------------------------------------------
+# FASE 3b: LoadBalancer services via Cilium (LB-IPAM + L2 Announcements).
+#
+# The cilium-operator registers the CiliumL2AnnouncementPolicy CRD only once
+# the agent runs with l2announcements enabled, so the helm upgrade must finish
+# and the CRD must be established before the manifests below are applied.
+# Services with `type: LoadBalancer` then get an IP from cilium_lb_ipam_cidrs
+# and are announced over the LAN on eth0 (ARP/L2, kube-proxy-free).
+# ---------------------------------------------------------------------------
+resource "terraform_data" "cilium_lb_agent_restart" {
+  count = var.cilium_enable_lb ? 1 : 0
+
+  triggers_replace = timestamp()
+
+  # The Cilium daemonset template does not carry a config checksum, so a helm
+  # upgrade that flips enable-l2-announcements only lands in the ConfigMap; the
+  # agents must be rolled out to actually pick it up. The restart is idempotent
+  # and cheap, so run it on every apply before creating the LB CRs.
+  provisioner "local-exec" {
+    command = "kubectl --kubeconfig ${local_sensitive_file.kubeconfig.filename} -n kube-system rollout restart daemonset/cilium && kubectl --kubeconfig ${local_sensitive_file.kubeconfig.filename} -n kube-system rollout status daemonset/cilium --timeout=300s"
+  }
+
+  depends_on = [module.cilium]
+}
+
+resource "terraform_data" "cilium_lb_crd_ready" {
+  count = var.cilium_enable_lb ? 1 : 0
+
+  provisioner "local-exec" {
+    command = "kubectl --kubeconfig ${local_sensitive_file.kubeconfig.filename} wait --for=condition=established --timeout=180s crd/ciliumloadbalancerippools.cilium.io crd/ciliuml2announcementpolicies.cilium.io"
+  }
+
+  depends_on = [terraform_data.cilium_lb_agent_restart]
+}
+
+resource "local_file" "cilium_lb_pool_yaml" {
+  count    = var.cilium_enable_lb ? 1 : 0
+  filename = "${path.module}/.gen/cilium-lb-pool.yaml"
+  content = yamlencode({
+    apiVersion = "cilium.io/v2"
+    kind       = "CiliumLoadBalancerIPPool"
+    metadata = {
+      name = "lb-pool"
+    }
+    spec = {
+      blocks = [
+        for entry in var.cilium_lb_ipam_cidrs : can(regex("-", entry)) ? {
+          start = split("-", entry)[0]
+          stop  = split("-", entry)[1]
+          } : {
+          cidr = entry
+        }
+      ]
+    }
+  })
+}
+
+resource "local_file" "cilium_l2_policy_yaml" {
+  count    = var.cilium_enable_lb ? 1 : 0
+  filename = "${path.module}/.gen/cilium-l2-policy.yaml"
+  content = yamlencode({
+    apiVersion = "cilium.io/v2alpha1"
+    kind       = "CiliumL2AnnouncementPolicy"
+    metadata = {
+      name = "l2-lb-policy"
+    }
+    spec = {
+      loadBalancerIPs = true
+      interfaces      = ["eth0"]
+    }
+  })
+}
+
+# Apply the CRs with kubectl (the Cilium CRDs do not expose a structural OpenAPI
+# schema, which kubernetes_manifest cannot handle). Idempotent kubectl apply.
+resource "terraform_data" "cilium_lb_apply" {
+  count = var.cilium_enable_lb ? 1 : 0
+
+  input = {
+    kubeconfig = local_sensitive_file.kubeconfig.filename
+  }
+
+  provisioner "local-exec" {
+    command = "kubectl --kubeconfig ${local_sensitive_file.kubeconfig.filename} apply --server-side --force-conflicts -f ${local_file.cilium_lb_pool_yaml[0].filename} -f ${local_file.cilium_l2_policy_yaml[0].filename}"
+  }
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = "kubectl --kubeconfig ${self.input.kubeconfig} delete --ignore-not-found -f ${path.module}/.gen/cilium-lb-pool.yaml -f ${path.module}/.gen/cilium-l2-policy.yaml || true"
+  }
+
+  depends_on = [terraform_data.cilium_lb_crd_ready]
 }
 
 # ---------------------------------------------------------------------------

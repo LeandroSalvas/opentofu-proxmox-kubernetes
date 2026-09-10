@@ -196,6 +196,21 @@ kubectl --kubeconfig kubeconfig.yaml get nodes -o wide   # all Ready
 > `node-role.kubernetes.io/worker=` match them. This is applied in-cluster (no
 > Talos machine-config change), so it works for any `worker_count`.
 
+> **LoadBalancer services (Phase 3b).** With `cilium_enable_lb = true` the apply
+> also installs Cilium LB-IPAM + L2 Announcements: a `CiliumLoadBalancerIPPool`
+> is created from `cilium_lb_ipam_cidrs` (default `192.168.15.230-192.168.15.245`)
+> and a `CiliumL2AnnouncementPolicy` announces those IPs over `eth0`. Any Service
+> with `type: LoadBalancer` then gets a real LAN IP with no MetalLB:
+>
+> ```bash
+> kubectl apply -f examples/supermario.yaml          # demo: HTTP game behind a LB
+> kubectl get svc supermario                         # EXTERNAL-IP, e.g. 192.168.15.230
+> curl http://192.168.15.230/                        # works from any LAN client
+> ```
+>
+> Keep the pool out of your DHCP/existing static ranges. Set
+> `cilium_enable_lb = false` to disable (falls back to NodePort/port-forward).
+
 Quick storage sanity check (dynamic provisioning over NFS):
 
 ```bash

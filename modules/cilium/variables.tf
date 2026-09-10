@@ -30,3 +30,15 @@ variable "namespace" {
   type        = string
   default     = "kube-system"
 }
+
+variable "enable_lb" {
+  description = "Enable LoadBalancer services via Cilium LB-IPAM + L2 Announcements (kube-proxy-free)."
+  type        = bool
+  default     = true
+}
+
+variable "lb_ipam_cidrs" {
+  description = "CIDRs/IP ranges (strings) that the operator may allocate to LoadBalancer services. Keep them out of your DHCP/LAN static ranges."
+  type        = list(string)
+  default     = []
+}

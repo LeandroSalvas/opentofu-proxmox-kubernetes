@@ -197,6 +197,21 @@ kubectl --kubeconfig kubeconfig.yaml get nodes -o wide   # todos Ready
 > Aplicado in-cluster (sem alterar a machine config Talos), funciona para qualquer
 > `worker_count`.
 
+> **Serviços LoadBalancer (Fase 3b).** Com `cilium_enable_lb = true`, o apply
+> também instala LB-IPAM + L2 Announcements do Cilium: um `CiliumLoadBalancerIPPool`
+> é criado a partir de `cilium_lb_ipam_cidrs` (padrão `192.168.15.230-192.168.15.245`)
+> e um `CiliumL2AnnouncementPolicy` anuncia esses IPs pela `eth0`. Qualquer Service
+> com `type: LoadBalancer` passa a receber um IP real da LAN, sem MetalLB:
+>
+> ```bash
+> kubectl apply -f examples/supermario.yaml          # demo: jogo HTTP atrás de um LB
+> kubectl get svc supermario                         # EXTERNAL-IP, ex.: 192.168.15.230
+> curl http://192.168.15.230/                        # funciona de qualquer cliente da LAN
+> ```
+>
+> Mantenha o pool fora das faixas do DHCP/estáticas existentes. Defina
+> `cilium_enable_lb = false` para desativar (cai para NodePort/port-forward).
+
 Sanidade rápida do storage (provisionamento dinâmico via NFS):
 
 ```bash
