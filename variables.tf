@@ -171,6 +171,32 @@ variable "cluster_name" {
 }
 
 # ---------------------------------------------------------------------------
+# Fase 5b - Dynamic, load-aware VM placement
+# ---------------------------------------------------------------------------
+
+variable "placement_cpu_weight" {
+  description = "Weight of the host CPU utilization in the load score used to pick the least-loaded Proxmox node when creating VMs. Must be between 0 and 1; together with placement_mem_weight it should sum to 1."
+  type        = number
+  default     = 0.5
+
+  validation {
+    condition     = var.placement_cpu_weight >= 0 && var.placement_cpu_weight <= 1
+    error_message = "placement_cpu_weight must be between 0 and 1."
+  }
+}
+
+variable "placement_mem_weight" {
+  description = "Weight of the host memory utilization in the load score used to pick the least-loaded Proxmox node when creating VMs. Must be between 0 and 1; together with placement_cpu_weight it should sum to 1."
+  type        = number
+  default     = 0.5
+
+  validation {
+    condition     = var.placement_mem_weight >= 0 && var.placement_mem_weight <= 1
+    error_message = "placement_mem_weight must be between 0 and 1."
+  }
+}
+
+# ---------------------------------------------------------------------------
 # Phase 2 - Talos bootstrap
 # ---------------------------------------------------------------------------
 

@@ -6,6 +6,14 @@
 # ---------------------------------------------------------------------------
 data "proxmox_virtual_environment_nodes" "cluster" {}
 
+# Per-host status (utilization, memory) used to score live placement. Only
+# online nodes are queried; the aggregates above provide the online filter.
+data "proxmox_virtual_environment_node" "status" {
+  for_each = toset(local.online_nodes)
+
+  node_name = each.key
+}
+
 locals {
   # Physical Proxmox nodes that are online right now.
   online_nodes = [
@@ -16,6 +24,83 @@ locals {
 
   online_nodes_sorted = sort(local.online_nodes)
   node_count          = length(local.online_nodes_sorted)
+
+  # -------------------------------------------------------------------------
+  # Dynamic, load-aware VM placement.
+  #
+  # Each online host is scored by its CURRENT utilization (CPU + memory, both
+  # clamped to [0,1]) and new VMs are distributed over a weighted ring where a
+  # host appears in proportion to its free headroom. The ring is deterministic
+  # for a given load snapshot: ties are broken by node name.
+  #
+  # Existing VMs are never migrated: the compute module keeps node_name under
+  # lifecycle.ignore_changes, so this only affects VMs *created* on the next
+  # apply (scale-out or re-provisioning), not the ones already running.
+  # -------------------------------------------------------------------------
+  node_cpu_util = {
+    for n in local.online_nodes_sorted :
+    n => min(data.proxmox_virtual_environment_node.status[n].cpu_utilization, 1)
+  }
+
+  node_mem_util = {
+    for n in local.online_nodes_sorted :
+    n => (
+      data.proxmox_virtual_environment_node.status[n].memory_total > 0
+      ? min(
+        1,
+        data.proxmox_virtual_environment_node.status[n].memory_used /
+        data.proxmox_virtual_environment_node.status[n].memory_total,
+      )
+      : 0
+    )
+  }
+
+  # Weighted utilization score [0,1]: higher = busier host. Weights are
+  # normalized so any values (even 0/0 edge cases) behave deterministically.
+  placement_weight_total = max(var.placement_cpu_weight + var.placement_mem_weight, 0.0001)
+
+  node_score = {
+    for n in local.online_nodes_sorted :
+    n => (
+      (var.placement_cpu_weight / local.placement_weight_total) * local.node_cpu_util[n] +
+      (var.placement_mem_weight / local.placement_weight_total) * local.node_mem_util[n]
+    )
+  }
+
+  # Free headroom [0.01, 1]; every online node stays eligible to receive VMs.
+  node_free = {
+    for n in local.online_nodes_sorted :
+    n => max(1 - local.node_score[n], 0.01)
+  }
+
+  node_free_total = max(sum([for n in local.online_nodes_sorted : local.node_free[n]]), 0.0001)
+
+  # Least-loaded first; deterministic tie-break by node name.
+  node_order = [
+    for entry in sort([
+      for n in local.online_nodes_sorted :
+      format("%.6f|%s", local.node_score[n], n)
+    ]) :
+    split("|", entry)[1]
+  ]
+
+  # Slot count per host proportional to its headroom (scale K=10). OpenTofu has
+  # no round(); floor(x + 0.5) is the equivalent.
+  node_slots = {
+    for n in local.online_nodes_sorted :
+    n => max(1, floor(10 * local.node_free[n] / local.node_free_total + 0.5))
+  }
+
+  max_slots = max([for n in local.online_nodes_sorted : local.node_slots[n]]...)
+
+  # Ring built one "round" per slot position: each round takes one slot from
+  # every host that still has slots left (least-loaded first). Interleaving
+  # keeps the exact proportional totals while preventing consecutive VMs from
+  # clumping onto a single host.
+  placement_ring = concat([
+    for s in range(local.max_slots) :
+    [for n in local.node_order : n if s < local.node_slots[n]]
+  ]...)
 
   # Kubernetes master and worker IPs derived from the pool.
   # Masters: .220 + i (i = 0..master_count-1) -> up to 5 (.220-.224)
@@ -29,14 +114,14 @@ locals {
     cidrhost(var.node_cidr, var.worker_pool_start + i)
   ]
 
-  # Round-robin mapping: each K8s node gets a physical Proxmox node.
-  # With 1 node: i % 1 == 0 -> everything lands on that single node.
-  # With N nodes: distribution is balanced automatically.
+  # Dynamic placement: each K8s node walks the weighted ring (masters first,
+  # then workers), so the heavier/further VMs land on the least-loaded hosts.
+  # With 1 node: the whole ring is that single node.
   master_nodes = {
     for i in range(var.master_count) :
     "KuM${i + 1}" => {
       ip   = local.master_ips[i]
-      node = local.online_nodes_sorted[i % local.node_count]
+      node = local.placement_ring[i % length(local.placement_ring)]
     }
   }
 
@@ -44,7 +129,7 @@ locals {
     for i in range(var.worker_count) :
     "KuW${i + 1}" => {
       ip   = local.worker_ips[i]
-      node = local.online_nodes_sorted[i % local.node_count]
+      node = local.placement_ring[(var.master_count + i) % length(local.placement_ring)]
     }
   }
 
@@ -122,8 +207,10 @@ module "image" {
 
 # ---------------------------------------------------------------------------
 # FASE 1: Create the control plane (masters) and worker VMs, distributed
-# round-robin across the detected online Proxmox nodes. Each disk imports the
-# local Talos image over SSH (file_id).
+# load-aware across the online Proxmox nodes (weighted by current free
+# headroom; see the placement locals above). Each disk imports the local
+# Talos image over SSH (file_id). Existing VMs keep their node (ignore_changes
+# in the compute module), so this placement only drives new creations.
 # ---------------------------------------------------------------------------
 module "compute" {
   source     = "./modules/compute"
@@ -266,13 +353,13 @@ module "storage" {
 module "capi" {
   source = "./modules/capi"
 
-  cert_manager_chart_version   = var.capi_cert_manager_chart_version
-  operator_chart_version       = var.capi_operator_chart_version
-  core_version                 = var.capi_core_version
-  kubeadm_bootstrap_version    = var.capi_kubeadm_bootstrap_version
+  cert_manager_chart_version    = var.capi_cert_manager_chart_version
+  operator_chart_version        = var.capi_operator_chart_version
+  core_version                  = var.capi_core_version
+  kubeadm_bootstrap_version     = var.capi_kubeadm_bootstrap_version
   kubeadm_control_plane_version = var.capi_kubeadm_control_plane_version
-  proxmox_provider_version     = var.capi_proxmox_provider_version
-  in_cluster_ipam_version      = var.capi_in_cluster_ipam_version
+  proxmox_provider_version      = var.capi_proxmox_provider_version
+  in_cluster_ipam_version       = var.capi_in_cluster_ipam_version
 
   provider_config_secret_name      = var.capi_config_secret_name
   provider_config_secret_namespace = var.capi_config_secret_namespace

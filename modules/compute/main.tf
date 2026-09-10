@@ -6,6 +6,12 @@ resource "proxmox_virtual_environment_vm" "master" {
   node_name   = each.value.node
   vm_id       = var.master_vm_id_base + tonumber(regex("KuM(\\d+)", each.key)[0]) - 1
 
+  # Placement is load-aware at creation time only. Ignore subsequent changes so
+  # a per-run shift in host utilization never re-plans (migrates) running VMs.
+  lifecycle {
+    ignore_changes = [node_name]
+  }
+
   tags = toset([
     var.cluster_name,
     "k8s",
@@ -61,6 +67,12 @@ resource "proxmox_virtual_environment_vm" "worker" {
   description = "Kubernetes worker node ${each.value.ip}"
   node_name   = each.value.node
   vm_id       = var.worker_vm_id_base + tonumber(regex("KuW(\\d+)", each.key)[0]) - 1
+
+  # See the master resource: placement is only applied on creation; running
+  # VMs are never migrated by load drift.
+  lifecycle {
+    ignore_changes = [node_name]
+  }
 
   tags = toset([
     var.cluster_name,

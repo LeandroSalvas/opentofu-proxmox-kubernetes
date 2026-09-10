@@ -313,6 +313,26 @@ kubectl config set-cluster k8s-homelab --server=https://192.168.15.113:6443 --ku
 > apiserver address, or `--as-generated` to keep the first control-plane
 > endpoint Talos wrote.
 
+### Dynamic, load-aware VM placement
+
+New VMs are spread across the online Proxmox nodes by **current host
+utilization**, not by a static round-robin. At plan time each node is scored
+from its live CPU and memory usage (`placement_cpu_weight` /
+`placement_mem_weight`, both default `0.5`), the hosts are ordered
+least-loaded first, and VMs are placed over a weighted ring whose slots are
+proportional to each host's free headroom. IPs, VM IDs, and the cluster layout
+are unchanged.
+
+```bash
+# e.g., prioritize free memory over free CPU when scoring hosts:
+tofu apply -var placement_mem_weight=0.7 -var placement_cpu_weight=0.3
+```
+
+> **Note:** placement is applied **at creation time only**. Existing VMs keep
+> their Proxmox node (`lifecycle.ignore_changes` on `node_name`), so utilization
+> drift never triggers live migrations — rebalancing a running cluster is done
+> manually (e.g., `qm migrate` or a recreate).
+
 ### Reproducibility (validated end-to-end)
 
 The whole environment was **destroyed and rebuilt from scratch** in a single
