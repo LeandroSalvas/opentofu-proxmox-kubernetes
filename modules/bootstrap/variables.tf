@@ -24,7 +24,7 @@ variable "controlplane_nodes" {
 }
 
 variable "worker_nodes" {
-  description = "Map of worker node name -> static IP (e.g. KuMn1 -> 192.168.15.225)."
+  description = "Map of worker node name -> static IP (e.g. KuW1 -> 192.168.15.225)."
   type        = map(string)
 }
 

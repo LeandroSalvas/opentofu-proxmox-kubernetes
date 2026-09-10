@@ -121,3 +121,56 @@ resource "helm_release" "cluster_api_operator" {
 
   timeout = 600
 }
+
+# ---------------------------------------------------------------------------
+# Cleanup on destroy: the cluster-api-operator chart renders the Provider CRs
+# (CoreProvider, BootstrapProvider, ...) from `values`. Those CRs carry a
+# finalizer `provider.cluster.x-k8s.io` that only the Operator controller can
+# remove. When the Operator is uninstalled together with those CRs, the
+# controller is gone before it can finalize them, leaving the CRs stuck in
+# Terminating and blocking the kubernetes_namespace_v1.capmox_system destroy.
+#
+# This resource depends on the Operator release, so on destroy Terraform runs
+# it BEFORE the Helm uninstall (reverse dependency order): the Operator is still
+# running and can resolve the finalizers cleanly. If any CR still lingers, we
+# force-remove its finalizer and delete the now-orphaned provider namespaces.
+# ---------------------------------------------------------------------------
+resource "terraform_data" "capi_provider_cleanup" {
+  # Capture the kubeconfig location in the resource itself: destroy-time
+  # provisioners may only reference `self`, so the path is kept in `input`.
+  # `triggers_replace` also re-runs it if the path changes across applies.
+  input = var.kubeconfig_path
+
+  depends_on = [helm_release.cluster_api_operator]
+
+  provisioner "local-exec" {
+    when    = destroy
+    command = <<-EOT
+      KUBECONFIG="${self.input}" kubectl delete coreprovider cluster-api \
+        -n capi-system --ignore-not-found --wait=false || true
+      KUBECONFIG="${self.input}" kubectl delete bootstrapprovider kubeadm \
+        -n capi-kubeadm-bootstrap-system --ignore-not-found --wait=false || true
+      KUBECONFIG="${self.input}" kubectl delete controlplaneprovider kubeadm \
+        -n capi-kubeadm-control-plane-system --ignore-not-found --wait=false || true
+      KUBECONFIG="${self.input}" kubectl delete infrastructureprovider proxmox \
+        -n capmox-system --ignore-not-found --wait=false || true
+      KUBECONFIG="${self.input}" kubectl delete ipamprovider in-cluster \
+        -n capi-ipam-in-cluster-system --ignore-not-found --wait=false || true
+      sleep 10
+      for cr in \
+        "coreprovider cluster-api capi-system" \
+        "bootstrapprovider kubeadm capi-kubeadm-bootstrap-system" \
+        "controlplaneprovider kubeadm capi-kubeadm-control-plane-system" \
+        "infrastructureprovider proxmox capmox-system" \
+        "ipamprovider in-cluster capi-ipam-in-cluster-system"; do
+        set -- $cr
+        KUBECONFIG="${self.input}" kubectl patch "$1" "$2" -n "$3" --ignore-not-found \
+          --type merge -p '{"metadata":{"finalizers":[]}}' || true
+      done
+      KUBECONFIG="${self.input}" kubectl delete namespace \
+        capi-system capi-kubeadm-bootstrap-system capi-kubeadm-control-plane-system \
+        capmox-system capi-ipam-in-cluster-system capi-operator-system \
+        --ignore-not-found --wait=false || true
+    EOT
+  }
+}

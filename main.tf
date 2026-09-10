@@ -42,7 +42,7 @@ locals {
 
   worker_nodes = {
     for i in range(var.worker_count) :
-    "KuMn${i + 1}" => {
+    "KuW${i + 1}" => {
       ip   = local.worker_ips[i]
       node = local.online_nodes_sorted[i % local.node_count]
     }
@@ -280,6 +280,7 @@ module "capi" {
   proxmox_token                    = var.capi_proxmox_token
   proxmox_secret                   = var.capi_proxmox_secret
   extra_values                     = var.capi_extra_values
+  kubeconfig_path                  = local_sensitive_file.kubeconfig.filename
 
   depends_on = [module.storage]
 }

@@ -60,7 +60,7 @@ resource "proxmox_virtual_environment_vm" "worker" {
   name        = each.key
   description = "Kubernetes worker node ${each.value.ip}"
   node_name   = each.value.node
-  vm_id       = var.worker_vm_id_base + tonumber(regex("KuMn(\\d+)", each.key)[0]) - 1
+  vm_id       = var.worker_vm_id_base + tonumber(regex("KuW(\\d+)", each.key)[0]) - 1
 
   tags = toset([
     var.cluster_name,

@@ -75,3 +75,8 @@ variable "extra_values" {
   type        = list(string)
   default     = []
 }
+
+variable "kubeconfig_path" {
+  description = "Filesystem path to the kubeconfig used to reach the cluster (for the destroy-time CR cleanup)."
+  type        = string
+}

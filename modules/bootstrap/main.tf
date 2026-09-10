@@ -5,11 +5,20 @@
 resource "talos_machine_secrets" "this" {}
 
 locals {
-  # IPs ordered by hostname (KuM1 < KuM2 < ... < KuMn). Terraform sorts map
-  # keys lexicographically, so `sort(keys())` yields the numeric order for
-  # both KuM1..KuM5 and KuMn1..KuMn9. The first entry is the bootstrap node.
-  controlplane_ips = [for name in sort(keys(var.controlplane_nodes)) : var.controlplane_nodes[name]]
-  worker_ips       = [for name in sort(keys(var.worker_nodes)) : var.worker_nodes[name]]
+  # IPs ordered by node number, not lexicographically: `sort(names)` would
+  # place KuW10 before KuW2. We extract the trailing number of each name and
+  # order by it, so controlplane = KuM1, KuM2, ... and workers = KuW1, KuW2, ...
+  # The first control-plane entry is the bootstrap node.
+  controlplane_num_ip = {
+    for name, ip in var.controlplane_nodes :
+    tonumber(regex("[A-Za-z]+([0-9]+)$", name)[0]) => ip
+  }
+  worker_num_ip = {
+    for name, ip in var.worker_nodes :
+    tonumber(regex("[A-Za-z]+([0-9]+)$", name)[0]) => ip
+  }
+  controlplane_ips = [for n in sort(keys(local.controlplane_num_ip)) : local.controlplane_num_ip[n]]
+  worker_ips       = [for n in sort(keys(local.worker_num_ip)) : local.worker_num_ip[n]]
 
   bootstrap_node_ip = local.controlplane_ips[0]
 

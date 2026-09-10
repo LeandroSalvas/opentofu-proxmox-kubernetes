@@ -59,8 +59,8 @@ saudável, com storage e auto-scaling, em um único apply.
                         |              | rede de pods (Cilium)       |
                         |   +----------+----------+                 |
                         |   |  Workers (CAPI)     |                 |
-                        |   |  KuMn1 .225         |<-- IPPool       |
-                        |   |  KuMn2 .226         |   DHCP in-cluster|
+                        |   |  KuW1 .225          |<-- IPPool       |
+                        |   |  KuW2 .226          |   DHCP in-cluster|
                         |   +--------------------+                 |
                         +--------------------------------------------+
 ```

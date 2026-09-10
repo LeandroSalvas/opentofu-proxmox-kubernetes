@@ -58,8 +58,8 @@ healthy, storage-backed, self-scaling cluster in a single apply.
                         |              | pod network (Cilium)       |
                         |   +----------+----------+                |
                         |   |  Workers (CAPI)     |                |
-                        |   |  KuMn1 .225         |<-- IPPool       |
-                        |   |  KuMn2 .226         |   DHCP in-cluster|
+                        |   |  KuW1 .225          |<-- IPPool       |
+                        |   |  KuW2 .226          |   DHCP in-cluster|
                         |   +--------------------+                |
                         +--------------------------------------------+
 ```
