@@ -336,13 +336,17 @@ resource "kubernetes_labels" "worker" {
 module "cilium" {
   source = "./modules/cilium"
 
-  k8s_service_host    = var.cilium_k8s_service_host
-  k8s_service_port    = var.cilium_k8s_service_port
-  chart_version       = var.cilium_chart_version
-  control_plane_taint = "node-role.kubernetes.io/control-plane"
-  extra_values        = var.cilium_extra_values
-  enable_lb           = var.cilium_enable_lb
-  lb_ipam_cidrs       = var.cilium_lb_ipam_cidrs
+  k8s_service_host       = var.cilium_k8s_service_host
+  k8s_service_port       = var.cilium_k8s_service_port
+  chart_version          = var.cilium_chart_version
+  control_plane_taint    = "node-role.kubernetes.io/control-plane"
+  extra_values           = var.cilium_extra_values
+  enable_lb              = var.cilium_enable_lb
+  lb_ipam_cidrs          = var.cilium_lb_ipam_cidrs
+  hubble_ui_enabled      = var.cilium_hubble_ui_enabled
+  hubble_ui_service_type = var.cilium_hubble_ui_service_type
+  hubble_ui_node_port    = var.cilium_hubble_ui_node_port
+  hubble_metrics_enabled = var.cilium_hubble_metrics_enabled
 
   depends_on = [module.bootstrap]
 }

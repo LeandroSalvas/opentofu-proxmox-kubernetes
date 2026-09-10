@@ -352,6 +352,24 @@ kubectl config set-cluster k8s-homelab --server=https://192.168.15.113:6443 --ku
 > apiserver address, or `--as-generated` to keep the first control-plane
 > endpoint Talos wrote.
 
+### Visual tooling
+
+The cluster ships with a web dashboard and a terminal UI for day‑to‑day
+operation. Both are reachable from any host with a LAN route to the nodes.
+
+- **Hubble UI** — network service map and traffic dashboards (DNS, drops, TCP,
+  flows, HTTP status) powered by Cilium's Hubble, exposed as a `NodePort`
+  service: `http://<any-worker-ip>:31235`. `cilium_hubble_ui_enabled`,
+  `cilium_hubble_ui_service_type` (`NodePort` / `LoadBalancer`),
+  `cilium_hubble_metrics_enabled` control the relay/UI/metrics deployment.
+
+- **k9s** — handy TUI for navigating pods, deployments, logs and events against
+  the same kubeconfig the apply writes:
+
+  ```bash
+  k9s --kubeconfig ./kubeconfig.yaml          # or KUBECONFIG=$PWD/kubeconfig.yaml
+  ```
+
 ### Dynamic, load-aware VM placement
 
 New VMs are spread across the online Proxmox nodes by **current host

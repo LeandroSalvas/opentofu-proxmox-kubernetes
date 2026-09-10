@@ -84,6 +84,32 @@ locals {
     l2announcements = {
       enabled = var.enable_lb
     }
+    # Hubble: observe the cluster via a network service map / dashboards.
+    # Agents already run with hubble.enabled=true; relay + UI live as their own
+    # Deployments, and metrics make the UI dashboards meaningful.
+    hubble = {
+      relay = {
+        enabled = var.hubble_ui_enabled
+      }
+      ui = {
+        enabled = var.hubble_ui_enabled
+        service = {
+          type     = var.hubble_ui_service_type
+          nodePort = var.hubble_ui_node_port
+        }
+      }
+      metrics = {
+        # null disables metrics entirely (avoid emitting `enabled: null`).
+        enabled = var.hubble_metrics_enabled ? [
+          "dns",
+          "drop",
+          "tcp",
+          "flow",
+          "icmp",
+          "http",
+        ] : null
+      }
+    }
   }))
 }
 

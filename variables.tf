@@ -318,6 +318,30 @@ variable "cilium_lb_ipam_cidrs" {
   default     = ["192.168.15.230-192.168.15.245"]
 }
 
+variable "cilium_hubble_ui_enabled" {
+  description = "Deploy Hubble Relay + Hubble UI (network service map / dashboards). Defaults to a NodePort service."
+  type        = bool
+  default     = true
+}
+
+variable "cilium_hubble_ui_service_type" {
+  description = "Kubernetes Service type for the Hubble UI (ClusterIP, NodePort or LoadBalancer)."
+  type        = string
+  default     = "NodePort"
+}
+
+variable "cilium_hubble_ui_node_port" {
+  description = "nodePort for the Hubble UI Service when type is NodePort."
+  type        = number
+  default     = 31235
+}
+
+variable "cilium_hubble_metrics_enabled" {
+  description = "Export Hubble flow metrics (dns/drop/tcp/flow/icmp/http) from the agents to power the UI dashboards."
+  type        = bool
+  default     = true
+}
+
 # ---------------------------------------------------------------------------
 # Phase 5 - NFS storage
 # ---------------------------------------------------------------------------

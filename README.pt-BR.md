@@ -349,6 +349,25 @@ kubectl config set-cluster k8s-homelab --server=https://192.168.15.113:6443 --ku
 > outro endereço de apiserver alcançável, ou `--as-generated` para manter o
 > endpoint do primeiro control plane que o Talos escreveu.
 
+### Ferramentas visuais
+
+O cluster já vem com um dashboard web e uma UI de terminal para a operação do
+dia a dia. Ambas funcionam de qualquer host com rota de LAN para os nós.
+
+- **Hubble UI** — service map de rede e dashboards de tráfego (DNS, drops, TCP,
+  fluxos, status HTTP) alimentados pelo Hubble do Cilium, expostos como serviço
+  `NodePort`: `http://<ip-de-qualquer-worker>:31235`. As variáveis
+  `cilium_hubble_ui_enabled`, `cilium_hubble_ui_service_type` (`NodePort` /
+  `LoadBalancer`) e `cilium_hubble_metrics_enabled` controlam o deploy do
+  relay/UI/métricas.
+
+- **k9s** — TUI prática para navegar em pods, deployments, logs e eventos usando
+  o mesmo kubeconfig que o apply grava:
+
+  ```bash
+  k9s --kubeconfig ./kubeconfig.yaml          # ou KUBECONFIG=$PWD/kubeconfig.yaml
+  ```
+
 ### Distribuição dinâmica das VMs por utilização
 
 As VMs novas são distribuídas entre os nós online do Proxmox pela **utilização
