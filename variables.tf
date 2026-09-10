@@ -318,30 +318,6 @@ variable "cilium_lb_ipam_cidrs" {
   default     = ["192.168.15.230-192.168.15.245"]
 }
 
-variable "cilium_hubble_ui_enabled" {
-  description = "Deploy Hubble Relay + Hubble UI (network service map / dashboards). Defaults to a NodePort service."
-  type        = bool
-  default     = true
-}
-
-variable "cilium_hubble_ui_service_type" {
-  description = "Kubernetes Service type for the Hubble UI (ClusterIP, NodePort or LoadBalancer)."
-  type        = string
-  default     = "NodePort"
-}
-
-variable "cilium_hubble_ui_node_port" {
-  description = "nodePort for the Hubble UI Service when type is NodePort."
-  type        = number
-  default     = 31235
-}
-
-variable "cilium_hubble_metrics_enabled" {
-  description = "Export Hubble flow metrics (dns/drop/tcp/flow/icmp/http) from the agents to power the UI dashboards."
-  type        = bool
-  default     = true
-}
-
 # ---------------------------------------------------------------------------
 # Phase 5 - NFS storage
 # ---------------------------------------------------------------------------
@@ -466,6 +442,46 @@ variable "capi_proxmox_secret" {
 
 variable "capi_extra_values" {
   description = "Extra Helm values (raw YAML) merged over the CAPI module defaults."
+  type        = list(string)
+  default     = []
+}
+
+# ---------------------------------------------------------------------------
+# Phase 6 - Kubernetes Dashboard (web UI)
+# ---------------------------------------------------------------------------
+
+variable "dashboard_chart_version" {
+  description = "Version of the kubernetes-dashboard Helm chart (v7, retired repo)."
+  type        = string
+  default     = "7.14.0"
+}
+
+variable "dashboard_namespace" {
+  description = "Namespace where the Kubernetes Dashboard is installed."
+  type        = string
+  default     = "kubernetes-dashboard"
+}
+
+variable "dashboard_service_type" {
+  description = "Kubernetes Service type for the dashboard gateway (kong-proxy): ClusterIP, NodePort or LoadBalancer."
+  type        = string
+  default     = "NodePort"
+}
+
+variable "dashboard_node_port" {
+  description = "nodePort for the dashboard gateway when type is NodePort (HTTPS)."
+  type        = number
+  default     = 30443
+}
+
+variable "dashboard_metrics_server_enabled" {
+  description = "Deploy the bundled metrics-server subchart so the dashboard renders CPU/memory charts."
+  type        = bool
+  default     = true
+}
+
+variable "dashboard_extra_values" {
+  description = "Extra Helm values (raw YAML) merged over the dashboard module defaults."
   type        = list(string)
   default     = []
 }

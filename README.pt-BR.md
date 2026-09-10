@@ -354,12 +354,19 @@ kubectl config set-cluster k8s-homelab --server=https://192.168.15.113:6443 --ku
 O cluster já vem com um dashboard web e uma UI de terminal para a operação do
 dia a dia. Ambas funcionam de qualquer host com rota de LAN para os nós.
 
-- **Hubble UI** — service map de rede e dashboards de tráfego (DNS, drops, TCP,
-  fluxos, status HTTP) alimentados pelo Hubble do Cilium, expostos como serviço
-  `NodePort`: `http://<ip-de-qualquer-worker>:31235`. As variáveis
-  `cilium_hubble_ui_enabled`, `cilium_hubble_ui_service_type` (`NodePort` /
-  `LoadBalancer`) e `cilium_hubble_metrics_enabled` controlam o deploy do
-  relay/UI/métricas.
+- **Kubernetes Dashboard** — a web UI oficial (v7), servida pelo gateway Kong
+  como serviço `NodePort` (HTTPS): `https://<ip-de-qualquer-worker>:30443`
+  (ex.: `https://192.168.15.225:30443`). Aceite o certificado self-signed.
+  O login usa um bearer token criado a partir do ServiceAccount admin do
+  módulo:
+
+  ```bash
+  kubectl -n kubernetes-dashboard create token dashboard-admin --duration=24h
+  ```
+
+  O metrics-server embutido alimenta os gráficos de CPU/memória e o
+  `kubectl top`. `dashboard_service_type` / `dashboard_node_port` mudam a forma
+  de exposição (`ClusterIP`, `NodePort` ou `LoadBalancer` via pool do Cilium).
 
 - **k9s** — TUI prática para navegar em pods, deployments, logs e eventos usando
   o mesmo kubeconfig que o apply grava:

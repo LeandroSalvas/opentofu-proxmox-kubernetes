@@ -336,17 +336,13 @@ resource "kubernetes_labels" "worker" {
 module "cilium" {
   source = "./modules/cilium"
 
-  k8s_service_host       = var.cilium_k8s_service_host
-  k8s_service_port       = var.cilium_k8s_service_port
-  chart_version          = var.cilium_chart_version
-  control_plane_taint    = "node-role.kubernetes.io/control-plane"
-  extra_values           = var.cilium_extra_values
-  enable_lb              = var.cilium_enable_lb
-  lb_ipam_cidrs          = var.cilium_lb_ipam_cidrs
-  hubble_ui_enabled      = var.cilium_hubble_ui_enabled
-  hubble_ui_service_type = var.cilium_hubble_ui_service_type
-  hubble_ui_node_port    = var.cilium_hubble_ui_node_port
-  hubble_metrics_enabled = var.cilium_hubble_metrics_enabled
+  k8s_service_host    = var.cilium_k8s_service_host
+  k8s_service_port    = var.cilium_k8s_service_port
+  chart_version       = var.cilium_chart_version
+  control_plane_taint = "node-role.kubernetes.io/control-plane"
+  extra_values        = var.cilium_extra_values
+  enable_lb           = var.cilium_enable_lb
+  lb_ipam_cidrs       = var.cilium_lb_ipam_cidrs
 
   depends_on = [module.bootstrap]
 }
@@ -491,4 +487,22 @@ module "capi" {
   kubeconfig_path                  = local_sensitive_file.kubeconfig.filename
 
   depends_on = [module.storage]
+}
+
+# ---------------------------------------------------------------------------
+# FASE 6: Kubernetes Dashboard (official web UI).
+# Exposed via NodePort on the Kong gateway (HTTPS <any-node-ip>:30443).
+# Login: kubectl -n kubernetes-dashboard create token dashboard-admin --duration=24h
+# ---------------------------------------------------------------------------
+module "kubernetes-dashboard" {
+  source = "./modules/kubernetes-dashboard"
+
+  chart_version          = var.dashboard_chart_version
+  namespace              = var.dashboard_namespace
+  service_type           = var.dashboard_service_type
+  node_port              = var.dashboard_node_port
+  metrics_server_enabled = var.dashboard_metrics_server_enabled
+  extra_values           = var.dashboard_extra_values
+
+  depends_on = [module.cilium, module.storage]
 }
