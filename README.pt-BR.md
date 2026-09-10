@@ -290,8 +290,26 @@ esse endereço):
 ```bash
 # pré-requisitos no host de destino: kubectl + rota TCP até 192.168.15.113:6443
 scripts/export-kubeconfig.sh                                    # local -> ./kubeconfig.yaml
+scripts/export-kubeconfig.sh --local                           # + instala em $HOME/.kube/config (com backup)
 scripts/export-kubeconfig.sh --host voce@workstation            # + instala ~/.kube/config no remoto
 scripts/export-kubeconfig.sh --talos --host voce@workstation    # + talosconfig para talosctl
+```
+
+Rodar o script **localmente** (sem `--host`/`--local`) grava a config em
+`./kubeconfig.yaml` no repositório — **não** mexe em `~/.kube/config`. Para usar
+`kubectl` na mesma máquina sem sobrescrever nada:
+
+```bash
+kubectl --kubeconfig ./kubeconfig.yaml get nodes               # não sobrescreve
+scripts/export-kubeconfig.sh --local                           # ou instala em ~/.kube/config
+```
+
+O `--local` faz backup de um `$HOME/.kube/config` existente para
+`$HOME/.kube/config.bak` antes de sobrescrever. Se preferir gravar direto, sem
+backup (fundindo manualmente outros clusters que você tenha):
+
+```bash
+scripts/export-kubeconfig.sh --output ~/.kube/config
 ```
 
 Equivalentes manuais, se preferir não usar o script:

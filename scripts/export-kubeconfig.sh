@@ -18,6 +18,8 @@ ENDPOINT="https://192.168.15.113:6443"
 OUTPUT_PATH="${REPO_ROOT}/kubeconfig.yaml"
 HOST=""
 REMOTE_PATH="~/.kube/config"
+INSTALL_LOCAL=""
+LOCAL_PATH="${HOME}/.kube/config"
 EXPORT_TALOS=""
 AS_GENERATED=""
 TMP_KUBECONFIG=""
@@ -38,6 +40,9 @@ Options:
                         control-plane IP); do not rewrite it.
   --output <path>       Local output path for the kubeconfig.
                         Default: <repo>/kubeconfig.yaml
+  --local               Also install the kubeconfig into $HOME/.kube/config,
+                        backing up an existing file to $HOME/.kube/config.bak
+                        before overwriting.
   --host <user@host>    Also install the kubeconfig on a remote host.
   --remote-path <path>  Remote destination path (default: ~/.kube/config).
   --talos               Also export the talosconfig (local ./talosconfig and,
@@ -56,6 +61,7 @@ while [[ $# -gt 0 ]]; do
   case "$1" in
     --endpoint)     ENDPOINT="$2"; shift 2 ;;
     --output)       OUTPUT_PATH="$2"; shift 2 ;;
+    --local)        INSTALL_LOCAL=1; shift ;;
     --host)         HOST="$2"; shift 2 ;;
     --remote-path)  REMOTE_PATH="$2"; shift 2 ;;
     --talos)        EXPORT_TALOS=1; shift ;;
@@ -105,6 +111,17 @@ fi
 mkdir -p "$(dirname "$OUTPUT_PATH")"
 install -m 600 "$TMP_KUBECONFIG" "$OUTPUT_PATH"
 echo "kubeconfig: ${OUTPUT_PATH}"
+
+if [[ -n "$INSTALL_LOCAL" ]]; then
+  mkdir -p "$(dirname "$LOCAL_PATH")"
+  if [[ -e "$LOCAL_PATH" ]]; then
+    cp -p "$LOCAL_PATH" "${LOCAL_PATH}.bak"
+    echo "kubeconfig: ${LOCAL_PATH} (previous file kept at ${LOCAL_PATH}.bak)"
+  else
+    echo "kubeconfig: ${LOCAL_PATH}"
+  fi
+  install -m 600 "$TMP_KUBECONFIG" "$LOCAL_PATH"
+fi
 
 if [[ -n "$HOST" ]]; then
   install_remote "$REMOTE_PATH" "$TMP_KUBECONFIG"

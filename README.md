@@ -293,8 +293,26 @@ that address):
 ```bash
 # prerequisites on the target host: kubectl + TCP route to 192.168.15.113:6443
 scripts/export-kubeconfig.sh                                    # local -> ./kubeconfig.yaml
-scripts/export-kubeconfig.sh --host you@workstation             # + install ~/.kube/config remotely
-scripts/export-kubeconfig.sh --talos --host you@workstation     # + talosconfig for talosctl
+scripts/export-kubeconfig.sh --local                           # + install into $HOME/.kube/config (with backup)
+scripts/export-kubeconfig.sh --host you@workstation            # + install ~/.kube/config remotely
+scripts/export-kubeconfig.sh --talos --host you@workstation    # + talosconfig for talosctl
+```
+
+Running the script **locally** (without `--host`/`--local`) writes the config to
+`./kubeconfig.yaml` in the repo — it does **not** touch `~/.kube/config`. To use
+`kubectl` on the same machine without overwriting anything:
+
+```bash
+kubectl --kubeconfig ./kubeconfig.yaml get nodes               # no overwrite
+scripts/export-kubeconfig.sh --local                           # or install to ~/.kube/config
+```
+
+`--local` backs up an existing `$HOME/.kube/config` to
+`$HOME/.kube/config.bak` before overwriting it. If you prefer to write directly
+without a backup (merging any other clusters manually):
+
+```bash
+scripts/export-kubeconfig.sh --output ~/.kube/config
 ```
 
 Manual equivalents, if you prefer not to use the script:
