@@ -306,6 +306,27 @@ resource "local_sensitive_file" "kubeconfig" {
 }
 
 # ---------------------------------------------------------------------------
+# Label the Kubernetes worker nodes with their role. Applied right after the
+# cluster is healthy (module.bootstrap, when every node already exists), so
+# `kubectl get nodes` shows ROLES=worker and selectors like
+# node-role.kubernetes.io/worker= work for any worker_count.
+# ---------------------------------------------------------------------------
+resource "kubernetes_labels" "worker" {
+  for_each = { for name in sort(keys(local.worker_nodes)) : lower(name) => name }
+
+  api_version = "v1"
+  kind        = "Node"
+  metadata {
+    name = each.key
+  }
+  labels = {
+    "node-role.kubernetes.io/worker" = ""
+  }
+
+  depends_on = [module.bootstrap]
+}
+
+# ---------------------------------------------------------------------------
 # FASE 3: Cilium CNI (kube-proxy-free).
 # Installed via Helm against the kubeconfig above once the cluster is healthy.
 # Requires the LB (192.168.15.113) to already forward 6443 -> control plane

@@ -190,6 +190,12 @@ As Cilium agents come up and kube-proxy is gone, every node transitions
 kubectl --kubeconfig kubeconfig.yaml get nodes -o wide   # all Ready
 ```
 
+> **Worker role labels.** At the end of every apply, the `kubernetes_labels.worker`
+> resource tags each worker machine with `node-role.kubernetes.io/worker=""`, so
+> `kubectl get nodes` shows `worker` under ROLES and selectors like
+> `node-role.kubernetes.io/worker=` match them. This is applied in-cluster (no
+> Talos machine-config change), so it works for any `worker_count`.
+
 Quick storage sanity check (dynamic provisioning over NFS):
 
 ```bash
