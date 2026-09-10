@@ -38,31 +38,30 @@ O repositório implanta a stack completa de Kubernetes em **cinco fases compost�
 cada uma mapeada para seu módulo OpenTofu. Toda fase passa por `tofu plan`/`tofu
 apply`, então o ambiente inteiro é reproduzível — de um Proxmox VE vazio a um cluster
 saudável, com storage e auto-scaling, em um único apply.
-
 ```
-                        +--------------------------------------------+
-                        |        Cluster Proxmox VE (2 nós)          |
-                        |                                           |
-    IaC (operador)      |   +------------------+  +--------------+  |
- +-------------------+  |   |  LB   HAProxy    |  |  Servidor NFS|  |
- | OpenTofu          |  |   |  192.168.15.113  |  |  192.168.15.29|  |
- |  + bpg/proxmox    |  |   |   :6443 -> CP    |  |  /NAS/kube_  |  |
- |  + siderolabs/talos|  |   +--------+---------+  |  storage    |  |
- |  + hashicorp/helm |  |            |            +--------------+  |
- |  + kubernetes     |  |            v 6443                         |
- +-------------------+  |   +---------------------+                 |
-        |               |   |  Plano de Controle  |                 |
-        | API Talos     |   |  KuM1 .220 (etcd)   |                 |
-        +-------------->|   |  KuM2 .221          |                 |
-                        |   |  KuM3 .222          |                 |
-                        |   +----------+----------+                 |
-                        |              | rede de pods (Cilium)       |
-                        |   +----------+----------+                 |
-                        |   |  Workers (CAPI)     |                 |
-                        |   |  KuW1 .225          |<-- IPPool       |
-                        |   |  KuW2 .226          |   DHCP in-cluster|
-                        |   +--------------------+                 |
-                        +--------------------------------------------+
+                         +--------------------------------------------+
+                         |         Cluster Proxmox VE (2 nós)         |
+                         |                                            |
+    IaC (operador)       |   +------------------+  +---------------+  |
+ +--------------------+  |   |   LB   HAProxy   |  |  Servidor NFS |  |
+ | OpenTofu           |  |   |  192.168.15.113  |  |  192.168.15.29|  |
+ |  + bpg/proxmox     |  |   |   :6443 -> CP    |  |  /NAS/kube_   |  |
+ |  + siderolabs/talos|  |   +--------+---------+  |  storage      |  |
+ |  + hashicorp/helm  |  |            |            +---------------+  |
+ |  + kubernetes      |  |            v 6443                          |
+ +--------------------+  |   +---------------------+                  |
+        |                |   |  Plano de Controle  |                  |
+        | API Talos      |   |  KuM1 .220 (etcd)   |                  |
+        +--------------->|   |  KuM2 .221          |                  |
+                         |   |  KuM3 .222          |                  |
+                         |   +----------+----------+                  |
+                         |              | rede de pods (Cilium)       |
+                         |   +----------+----------+                  |
+                         |   |  Workers (CAPI)     |                  |
+                         |   |  KuW1 .225          |<-- IPPool        |
+                         |   |  KuW2 .226          |   DHCP in-cluster|
+                         |   +--------------------+                   |
+                         +--------------------------------------------+
 ```
 
 ### As cinco fases
@@ -355,16 +354,6 @@ tofu apply -var placement_mem_weight=0.7 -var placement_cpu_weight=0.3
 > de utilização nunca dispara migrações ao vivo — rebalancear um cluster em
 > execução é feito manualmente (ex.: `qm migrate` ou recriação).
 
-### Reprodutibilidade (validada ponta a ponta)
-
-O ambiente inteiro foi **destruído e reconstruído do zero** num ciclo único
-`tofu destroy` → `tofu apply`, e voltou com o estado idêntico:
-
-```bash
-tofu destroy     # derruba VMs, cluster, Cilium, CAPI, storage
-tofu apply       # rebuild completo greenfield
-tofu plan        # No changes — a infraestrutura corresponde à configuração
-```
 
 ## Estrutura de Diretórios
 

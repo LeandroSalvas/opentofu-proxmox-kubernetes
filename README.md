@@ -39,29 +39,29 @@ apply`, so the whole environment is reproducible from an empty Proxmox VE to a
 healthy, storage-backed, self-scaling cluster in a single apply.
 
 ```
-                        +--------------------------------------------+
-                        |         Proxmox VE cluster (2 nodes)        |
-                        |                                            |
-    IaC (operator)      |   +------------------+  +--------------+   |
- +-------------------+  |   |   LB  HAProxy    |  |   NFS Server |   |
- | OpenTofu          |  |   |  192.168.15.113  |  |  192.168.15.29|
- |  + bpg/proxmox    |  |   |   :6443 -> CP    |  |  /NAS/kube_  |
- |  + siderolabs/talos|  |   +--------+---------+  |  storage     |
- |  + hashicorp/helm |  |            |            +--------------+
- |  + kubernetes     |  |            v 6443                        |
- +-------------------+  |   +---------------------+                |
-        |               |   |  Control Plane      |                |
-        | Talos API     |   |  KuM1 .220 (etcd)   |                |
-        +-------------->|   |  KuM2 .221          |                |
-                        |   |  KuM3 .222          |                |
-                        |   +----------+----------+                |
-                        |              | pod network (Cilium)       |
-                        |   +----------+----------+                |
-                        |   |  Workers (CAPI)     |                |
-                        |   |  KuW1 .225          |<-- IPPool       |
-                        |   |  KuW2 .226          |   DHCP in-cluster|
-                        |   +--------------------+                |
-                        +--------------------------------------------+
+                         +--------------------------------------------+
+                         |         Proxmox VE cluster (2 nodes)       |
+                         |                                            |
+    IaC (operator)       |   +------------------+  +---------------+  |
+ +--------------------+  |   |   LB  HAProxy    |  |   NFS Server  |  |
+ | OpenTofu           |  |   |  192.168.15.113  |  |  192.168.15.29|  |
+ |  + bpg/proxmox     |  |   |   :6443 -> CP    |  |  /NAS/kube_   |  |
+ |  + siderolabs/talos|  |   +--------+---------+  |  storage      |  |
+ |  + hashicorp/helm  |  |            |            +---------------+  |
+ |  + kubernetes      |  |            v 6443                          |
+ +--------------------+  |   +---------------------+                  |
+        |                |   |  Control Plane      |                  |
+        | Talos API      |   |  KuM1 .220 (etcd)   |                  |
+        +--------------->|   |  KuM2 .221          |                  |
+                         |   |  KuM3 .222          |                  |
+                         |   +----------+----------+                  |
+                         |              | pod network (Cilium)        |
+                         |   +----------+----------+                  |
+                         |   |  Workers (CAPI)     |                  |
+                         |   |  KuW1 .225          |<-- IPPool        |
+                         |   |  KuW2 .226          |   DHCP in-cluster|
+                         |   +--------------------+                   |
+                         +--------------------------------------------+
 ```
 
 ### The five phases
@@ -357,16 +357,6 @@ tofu apply -var placement_mem_weight=0.7 -var placement_cpu_weight=0.3
 > drift never triggers live migrations — rebalancing a running cluster is done
 > manually (e.g., `qm migrate` or a recreate).
 
-### Reproducibility (validated end-to-end)
-
-The whole environment was **destroyed and rebuilt from scratch** in a single
-`tofu destroy` → `tofu apply` cycle, and came back byte-consistent:
-
-```bash
-tofu destroy     # tears down VMs, cluster, Cilium, CAPI, storage
-tofu apply       # full greenfield rebuild
-tofu plan        # No changes — infrastructure matches configuration
-```
 
 ## Directory Structure
 
