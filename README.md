@@ -280,6 +280,39 @@ kubectl get machines,machinedeployments -A     # workers materialize & join
 > the providers (the IaC contract); the workload-cluster spec you author is
 > environment-specific.
 
+### Accessing the cluster from other hosts
+
+The generated credentials live in OpenTofu's state (the `kubeconfig_raw` and
+`talos_config` outputs) and, after an apply, on disk as `./kubeconfig.yaml`
+(0600) — so `kubectl` on the controller host works immediately. To use the
+cluster from other machines, export those configs with the bundled helper,
+which by default points the API `server` at the HAProxy load balancer
+(`https://192.168.15.113:6443` — the apiserver certificate already has a SAN for
+that address):
+
+```bash
+# prerequisites on the target host: kubectl + TCP route to 192.168.15.113:6443
+scripts/export-kubeconfig.sh                                    # local -> ./kubeconfig.yaml
+scripts/export-kubeconfig.sh --host you@workstation             # + install ~/.kube/config remotely
+scripts/export-kubeconfig.sh --talos --host you@workstation     # + talosconfig for talosctl
+```
+
+Manual equivalents, if you prefer not to use the script:
+
+```bash
+scp kubeconfig.yaml you@workstation:~/.kube/config && ssh you@workstation chmod 600 ~/.kube/config
+tofu output -raw kubeconfig_raw | ssh you@workstation 'cat > ~/.kube/config && chmod 600 ~/.kube/config'
+# point an existing kubeconfig at the load balancer instead of the first control plane:
+kubectl config set-cluster k8s-homelab --server=https://192.168.15.113:6443 --kubeconfig=~/.kube/config
+# talosctl: tofu output -raw talos_config > talosconfig && chmod 600 talosconfig
+```
+
+> **Note:** `kubeconfig.yaml` and `talosconfig` are removed by `tofu destroy` —
+> export them *before* tearing the cluster down, or re-generate after a rebuild.
+> Use `--endpoint <url>` to point the kubeconfig at any other reachable
+> apiserver address, or `--as-generated` to keep the first control-plane
+> endpoint Talos wrote.
+
 ### Reproducibility (validated end-to-end)
 
 The whole environment was **destroyed and rebuilt from scratch** in a single

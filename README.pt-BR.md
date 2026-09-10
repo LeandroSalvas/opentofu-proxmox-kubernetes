@@ -277,6 +277,39 @@ kubectl get machines,machinedeployments -A     # os workers materializam e entra
 > instala e valida os providers (o contrato da IaC); o spec do workload cluster que você
 > autora é específico de cada ambiente.
 
+### Acessar o cluster a partir de outros hosts
+
+As credenciais geradas vivem no state do OpenTofu (outputs `kubeconfig_raw` e
+`talos_config`) e, após um apply, em disco como `./kubeconfig.yaml` (0600) — com
+isso `kubectl` no host controlador funciona imediatamente. Para usar o cluster a
+partir de outras máquinas, exporte essas configs com o helper do repositório,
+que por padrão aponta o `server` da API para o load balancer HAProxy
+(`https://192.168.15.113:6443` — o certificado do apiserver já tem um SAN para
+esse endereço):
+
+```bash
+# pré-requisitos no host de destino: kubectl + rota TCP até 192.168.15.113:6443
+scripts/export-kubeconfig.sh                                    # local -> ./kubeconfig.yaml
+scripts/export-kubeconfig.sh --host voce@workstation            # + instala ~/.kube/config no remoto
+scripts/export-kubeconfig.sh --talos --host voce@workstation    # + talosconfig para talosctl
+```
+
+Equivalentes manuais, se preferir não usar o script:
+
+```bash
+scp kubeconfig.yaml voce@workstation:~/.kube/config && ssh voce@workstation chmod 600 ~/.kube/config
+tofu output -raw kubeconfig_raw | ssh voce@workstation 'cat > ~/.kube/config && chmod 600 ~/.kube/config'
+# apontar um kubeconfig existente para o LB em vez do primeiro control plane:
+kubectl config set-cluster k8s-homelab --server=https://192.168.15.113:6443 --kubeconfig=~/.kube/config
+# talosctl: tofu output -raw talos_config > talosconfig && chmod 600 talosconfig
+```
+
+> **Observação:** o `kubeconfig.yaml` e o `talosconfig` são removidos pelo
+> `tofu destroy` — exporte-os *antes* de derrubar o cluster, ou regenere depois
+> de um rebuild. Use `--endpoint <url>` para apontar o kubeconfig para qualquer
+> outro endereço de apiserver alcançável, ou `--as-generated` para manter o
+> endpoint do primeiro control plane que o Talos escreveu.
+
 ### Reprodutibilidade (validada ponta a ponta)
 
 O ambiente inteiro foi **destruído e reconstruído do zero** num ciclo único
